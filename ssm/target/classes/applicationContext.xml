@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+    <!--spring的配置文件-->
+
+    <!--加载配置文件-->
+    <context:property-placeholder location="classpath:dbconfig.properties"/>
+
+    <!--组件扫描器-->
+    <context:component-scan base-package="com.zengqiang.service"/>
+
+    <!--配置druid数据源,数据库连接池-->
+    <bean id="druidDataSource" class="com.alibaba.druid.pool.DruidDataSource"
+          init-method="init" destroy-method="close">
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+
+    <!--=============================================================-->
+    <!--spring和mybatis的整合-->
+    <!--sqlSessionFactory-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!--数据源-->
+        <property name="dataSource" ref="druidDataSource"/>
+        <!--mybatis的配置文件位置-->
+        <property name="configLocation" value="classpath:mybatis.xml"/>
+    </bean>
+
+    <!--配置扫描器，将接口的实现类"们"放到ioc容器中-->
+    <!--内部有一个sqlSessionTemplate，它是SqlSession接口的实现类，我们平时会使用DefaultSqlSession-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+        <property name="basePackage" value="com.zengqiang.dao"/>
+    </bean>
+
+    <!--配置一个可以批处理的sqlSession对象-->
+    <bean id="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"/>
+        <!--执行批处理-->
+        <constructor-arg name="executorType" value="BATCH"/>
+    </bean>
+
+    <!--===============================================================-->
+    <!--配置事务-->
+    <bean id="dataSourceTransactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="druidDataSource"/>
+    </bean>
+
+    <!--开启基于注解的事务，使用xml配置形式的事务（重要的东西使用配置式）-->
+    <tx:advice id="myAdvice" transaction-manager="dataSourceTransactionManager">
+        <tx:attributes>
+            <tx:method name="*"/>
+            <tx:method name="get*"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <aop:config>
+        <aop:pointcut id="myPointCut" expression="execution(* *..service..*.*(..))"/>
+        <aop:advisor advice-ref="myAdvice" pointcut-ref="myPointCut"/>
+    </aop:config>
+</beans>
